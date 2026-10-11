@@ -7,10 +7,8 @@
      Pa' cobrar de verdad, cambia sandbox a false SOLO cuando todo
      esté probado y la app de Pi esté aprobada en producción.
 
-     ⚠️ PASO OBLIGATORIO ANTES DE PUBLICAR:
-     Busca "TU-SERVIDOR.onrender.com" en este código (aparece 3 veces)
-     y cámbialo por la URL pública real que te dé Render al desplegar
-     el servidor (ej.: https://everafterwear-pi-payments.onrender.com).
+     SERVIDOR: ya apunta a https://pi-payments-server.onrender.com
+     (el servidor en Render, en vivo desde el 2026-10-11).
      ============================================================ -->
 
 <script src="https://sdk.minepi.com/pi-sdk.js"></script>
@@ -28,8 +26,8 @@
 </div>
 
 <script>
-  // URL del servidor en Render — CAMBIAR por la real cuando Render lo despliegue
-  var EAW_PI_SERVER = "https://TU-SERVIDOR.onrender.com";
+  // URL del servidor en Render (en vivo)
+  var EAW_PI_SERVER = "https://pi-payments-server.onrender.com";
 
   Pi.init({ version: "2.0", sandbox: true });
 

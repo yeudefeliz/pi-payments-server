@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EverAfterWear — Pago de prueba con Pi</title>
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; background:#111; color:#f5f0e6; margin:0; padding:24px; text-align:center; }
+  .tarjeta { max-width:420px; margin:24px auto; background:#000; border:2px solid #d4af37; border-radius:14px; padding:24px; }
+  h1 { color:#d4af37; font-size:22px; margin:0 0 6px; }
+  p.sub { color:#bbb; font-size:14px; margin:0 0 18px; }
+  .precio { font-size:34px; font-weight:bold; margin:10px 0 18px; }
+  button { background:#d4af37; color:#000; border:none; border-radius:10px; padding:15px 22px;
+           font-size:17px; font-weight:bold; cursor:pointer; width:100%; }
+  button:disabled { opacity:.5; }
+  #estado { margin-top:16px; font-size:15px; min-height:42px; line-height:1.45; }
+  .nota { font-size:12px; color:#888; margin-top:14px; line-height:1.5; }
+</style>
+</head>
+<body>
+  <div class="tarjeta">
+    <h1>EVERAFTERWEAR 👑</h1>
+    <p class="sub">Pago de PRUEBA con Pi (Testnet — dinero de mentira)</p>
+    <div class="precio">0.1 Test-Pi</div>
+    <button id="btn-pagar" type="button">🥧 Pagar con Pi</button>
+    <div id="estado">Toca el botón pa' probar el pago.</div>
+    <p class="nota">Esta página solo funciona dentro del <strong>Pi Browser</strong> con tu cuenta en modo <strong>Testnet</strong>. Ningún Pi real se mueve aquí.</p>
+  </div>
+
+<script>
+  // Mismo origen: esta página la sirve el propio servidor de pagos,
+  // así que las rutas /approve y /complete son relativas.
+  var estado = document.getElementById("estado");
+  var boton = document.getElementById("btn-pagar");
+
+  function decir(texto) { estado.innerHTML = texto; }
+
+  Pi.init({ version: "2.0", sandbox: true });
+
+  function onIncompletePaymentFound(payment) {
+    fetch("/incomplete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentId: payment.identifier })
+    }).catch(function () {});
+    decir("⚠️ Había un pago anterior sin terminar. Se le avisó al servidor.");
+  }
+
+  boton.addEventListener("click", async function () {
+    try {
+      boton.disabled = true;
+      decir("Conectando con tu wallet de Pi…");
+      await Pi.authenticate(["payments"], onIncompletePaymentFound);
+
+      var paymentData = {
+        amount: 0.1,
+        memo: "EverAfterWear — pago de prueba",
+        metadata: { orderId: "prueba-" + Date.now(), store: "everafterwear.store" }
+      };
+
+      var callbacks = {
+        onReadyForServerApproval: function (paymentId) {
+          decir("Pago creado ✔ Avisándole al servidor pa' que lo apruebe…");
+          fetch("/approve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId: paymentId })
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (d.ok) { decir("Servidor aprobó ✔ Confirma el pago en tu wallet…"); }
+              else { decir("❌ El servidor no pudo aprobar: " + (d.error || "error")); }
+            })
+            .catch(function () { decir("❌ Error avisando al servidor (approve)."); });
+        },
+        onReadyForServerCompletion: function (paymentId, txid) {
+          decir("Transacción en la blockchain ✔ Cerrando el pago…");
+          fetch("/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId: paymentId, txid: txid })
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (d.ok) { decir("🎉 ¡PAGO DE PRUEBA COMPLETADO! Todo el flujo funcionó: wallet → servidor → Pi."); }
+              else { decir("El pago entró, pero el cierre falló: " + (d.error || "error")); }
+            })
+            .catch(function () { decir("El pago entró, pero falló el aviso final al servidor."); });
+        },
+        onCancel: function () {
+          boton.disabled = false;
+          decir("Pago cancelado. Toca el botón pa' intentarlo de nuevo.");
+        },
+        onError: function (error) {
+          boton.disabled = false;
+          decir("❌ Error de Pi: " + (error && error.message ? error.message : error));
+        }
+      };
+
+      Pi.createPayment(paymentData, callbacks);
+    } catch (e) {
+      boton.disabled = false;
+      decir("No se pudo iniciar. Abre esta página desde el <strong>Pi Browser</strong> en modo Testnet.");
+    }
+  });
+</script>
+</body>
+</html>

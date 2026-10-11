@@ -4,6 +4,7 @@
 // Nunca escribas la llave en este archivo.
 
 const express = require('express');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
@@ -16,6 +17,11 @@ const PI_API_BASE = 'https://api.minepi.com/v2';
 // Salud del servidor
 app.get('/', (req, res) => {
   res.type('text').send('OK — EverAfterWear Pi Payments Server');
+});
+
+// Página de prueba del botón de pago (sandbox/Testnet) — se abre desde el Pi Browser
+app.get('/pagar', (req, res) => {
+  res.sendFile(path.join(__dirname, 'pagar.html'));
 });
 
 // Clave de validación del dominio (pública por diseño: Pi la lee desde una URL abierta).
