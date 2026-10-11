@@ -1,14 +1,17 @@
 <!-- ============================================================
-     EverAfterWear — Botón "Pagar con Pi" pa' el tema DUPLICADO de Shopify
+     EverAfterWear — Botón "Pagar con Pi" MAINNET (dinero REAL)
      ------------------------------------------------------------
-     DÓNDE PEGARLO: en el tema duplicado, en la plantilla del carrito
-     (cart) o del producto, donde quieras que aparezca el botón.
-     MODO SANDBOX: está en true = dinero de PRUEBA (Test-Pi).
-     Pa' cobrar de verdad, cambia sandbox a false SOLO cuando todo
-     esté probado y la app de Pi esté aprobada en producción.
+     DÓNDE PEGARLO: en el tema DUPLICADO de Shopify, en la plantilla
+     del CARRITO (cart), como bloque de "Liquid personalizado" o
+     pegado en el archivo de la plantilla del carrito.
 
-     SERVIDOR: ya apunta a https://pi-payments-mainnet.onrender.com
-     (el servidor en Render, en vivo desde el 2026-10-11).
+     MONTO: lee el total del carrito en USD (Liquid) y lo convierte
+     a Pi con la tasa EAW_PI_RATE. Tasa de mercado fijada el
+     2026-10-11: 1 Pi = $0.083 USD. AJUSTAR LA TASA AQUÍ cuando
+     el precio del Pi se mueva.
+
+     SERVIDOR: https://pi-payments-mainnet.onrender.com (Mainnet,
+     sandbox: false = pagos REALES a la App Wallet de la tienda).
      ============================================================ -->
 
 <script src="https://sdk.minepi.com/pi-sdk.js"></script>
@@ -17,22 +20,45 @@
   <button id="eaw-pay-pi" type="button"
     style="background:#000; color:#d4af37; border:2px solid #d4af37; border-radius:10px;
            padding:14px 22px; font-size:16px; font-weight:bold; cursor:pointer; width:100%;">
-    🥧 Pagar con Pi
+    🥧 Pagar <span id="eaw-pi-amount">…</span> con Pi
   </button>
+  <p style="font-size:12px; text-align:center; color:#666; margin-top:6px;">
+    Total del carrito convertido a Pi (tasa: 1 Pi = $0.083 USD)
+  </p>
   <p id="eaw-pi-msg" style="margin-top:8px; font-size:14px; text-align:center;"></p>
   <p style="font-size:12px; text-align:center; color:#666;">
     El pago con Pi solo funciona abriendo la tienda desde el Pi Browser.
+    Al recibir tu pago, confirmamos y preparamos tu pedido.
   </p>
 </div>
 
 <script>
-  // URL del servidor en Render (en vivo)
+  // Servidor de pagos Pi — MAINNET (dinero real)
   var EAW_PI_SERVER = "https://pi-payments-mainnet.onrender.com";
+
+  // Tasa de la tienda: cuántos USD vale 1 Pi (mercado, 2026-10-11)
+  var EAW_PI_RATE = 0.083;
+
+  // Total del carrito inyectado por Shopify (Liquid, en USD)
+  var cartUsd = {{ cart.total_price | divided_by: 100.0 }};
+  var amount = Math.max(Math.round((cartUsd / EAW_PI_RATE) * 100) / 100, 0.01);
 
   Pi.init({ version: "2.0", sandbox: false });
 
   function eawMsg(texto) {
     document.getElementById("eaw-pi-msg").textContent = texto;
+  }
+
+  // Muestra el monto en el botón (o avisa si el carrito está vacío)
+  var btn = document.getElementById("eaw-pay-pi");
+  var amtEl = document.getElementById("eaw-pi-amount");
+  if (typeof cartUsd === "number" && cartUsd > 0) {
+    amtEl.textContent = amount + " π";
+  } else {
+    amtEl.textContent = "";
+    btn.disabled = true;
+    btn.style.opacity = "0.5";
+    eawMsg("Tu carrito está vacío: agrega un producto para pagar con Pi.");
   }
 
   // Si quedó un pago a mitad, se lo avisamos al servidor
@@ -45,11 +71,7 @@
     eawMsg("Tienes un pago de Pi pendiente de completar. Escríbenos pa' ayudarte.");
   }
 
-  document.getElementById("eaw-pay-pi").addEventListener("click", async function () {
-    // ⚠️ AJUSTAR: pon aquí el total a cobrar en Pi y el número de orden.
-    // Ejemplo básico: lee el total del carrito de Shopify en USD y úsalo
-    // como monto en Pi SOLO como prueba — el precio real en Pi lo defines tú.
-    var amount = 1; // Test-Pi en modo sandbox
+  btn.addEventListener("click", async function () {
     var orderId = "EAW-" + Date.now();
 
     try {
@@ -59,7 +81,7 @@
       var paymentData = {
         amount: amount,
         memo: "EverAfterWear — orden " + orderId,
-        metadata: { orderId: orderId, store: "everafterwear.store" }
+        metadata: { orderId: orderId, store: "everafterwear.store", cartUsd: cartUsd, rate: EAW_PI_RATE }
       };
 
       var callbacks = {
@@ -76,7 +98,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paymentId: paymentId, txid: txid })
           })
-            .then(function () { eawMsg("✅ ¡Pago con Pi completado! Gracias por tu compra."); })
+            .then(function () { eawMsg("✅ ¡Pago con Pi completado! Gracias por tu compra — confirmamos tu pedido al verificar el pago."); })
             .catch(function () { eawMsg("El pago se hizo, pero falló el aviso final. Guarda tu comprobante."); });
         },
         onCancel: function () {
