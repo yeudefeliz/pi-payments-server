@@ -7,7 +7,7 @@
      Pa' cobrar de verdad, cambia sandbox a false SOLO cuando todo
      esté probado y la app de Pi esté aprobada en producción.
 
-     SERVIDOR: ya apunta a https://pi-payments-server.onrender.com
+     SERVIDOR: ya apunta a https://pi-payments-mainnet.onrender.com
      (el servidor en Render, en vivo desde el 2026-10-11).
      ============================================================ -->
 
@@ -27,9 +27,9 @@
 
 <script>
   // URL del servidor en Render (en vivo)
-  var EAW_PI_SERVER = "https://pi-payments-server.onrender.com";
+  var EAW_PI_SERVER = "https://pi-payments-mainnet.onrender.com";
 
-  Pi.init({ version: "2.0", sandbox: true });
+  Pi.init({ version: "2.0", sandbox: false });
 
   function eawMsg(texto) {
     document.getElementById("eaw-pi-msg").textContent = texto;

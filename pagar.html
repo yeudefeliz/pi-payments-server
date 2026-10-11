@@ -21,11 +21,11 @@
 <body>
   <div class="tarjeta">
     <h1>EVERAFTERWEAR 👑</h1>
-    <p class="sub">Pago de PRUEBA con Pi (Testnet — dinero de mentira)</p>
+    <p class="sub">Pago con Pi — MAINNET (dinero REAL)</p>
     <div class="precio">0.1 Test-Pi</div>
     <button id="btn-pagar" type="button">🥧 Pagar con Pi</button>
     <div id="estado">Toca el botón pa' probar el pago.</div>
-    <p class="nota">Esta página solo funciona dentro del <strong>Pi Browser</strong> con tu cuenta en modo <strong>Testnet</strong>. Ningún Pi real se mueve aquí.</p>
+    <p class="nota">Esta página funciona dentro del <strong>Pi Browser</strong>. OJO: esto mueve Pi REAL de tu cuenta Mainnet.</p>
   </div>
 
 <script>
@@ -36,7 +36,7 @@
 
   function decir(texto) { estado.innerHTML = texto; }
 
-  Pi.init({ version: "2.0", sandbox: true });
+  Pi.init({ version: "2.0", sandbox: false });
 
   function onIncompletePaymentFound(payment) {
     fetch("/incomplete", {
@@ -55,7 +55,7 @@
 
       var paymentData = {
         amount: 0.1,
-        memo: "EverAfterWear — pago de prueba",
+        memo: "EverAfterWear — pago mainnet",
         metadata: { orderId: "prueba-" + Date.now(), store: "everafterwear.store" }
       };
 
