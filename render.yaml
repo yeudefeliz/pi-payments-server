@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: everafterwear-pi-payments
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PI_API_KEY
+        sync: false

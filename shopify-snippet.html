@@ -1,0 +1,97 @@
+<!-- ============================================================
+     EverAfterWear — Botón "Pagar con Pi" pa' el tema DUPLICADO de Shopify
+     ------------------------------------------------------------
+     DÓNDE PEGARLO: en el tema duplicado, en la plantilla del carrito
+     (cart) o del producto, donde quieras que aparezca el botón.
+     MODO SANDBOX: está en true = dinero de PRUEBA (Test-Pi).
+     Pa' cobrar de verdad, cambia sandbox a false SOLO cuando todo
+     esté probado y la app de Pi esté aprobada en producción.
+
+     ⚠️ PASO OBLIGATORIO ANTES DE PUBLICAR:
+     Busca "TU-SERVIDOR.onrender.com" en este código (aparece 3 veces)
+     y cámbialo por la URL pública real que te dé Render al desplegar
+     el servidor (ej.: https://everafterwear-pi-payments.onrender.com).
+     ============================================================ -->
+
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+
+<div style="margin: 16px 0;">
+  <button id="eaw-pay-pi" type="button"
+    style="background:#000; color:#d4af37; border:2px solid #d4af37; border-radius:10px;
+           padding:14px 22px; font-size:16px; font-weight:bold; cursor:pointer; width:100%;">
+    🥧 Pagar con Pi
+  </button>
+  <p id="eaw-pi-msg" style="margin-top:8px; font-size:14px; text-align:center;"></p>
+  <p style="font-size:12px; text-align:center; color:#666;">
+    El pago con Pi solo funciona abriendo la tienda desde el Pi Browser.
+  </p>
+</div>
+
+<script>
+  // URL del servidor en Render — CAMBIAR por la real cuando Render lo despliegue
+  var EAW_PI_SERVER = "https://TU-SERVIDOR.onrender.com";
+
+  Pi.init({ version: "2.0", sandbox: true });
+
+  function eawMsg(texto) {
+    document.getElementById("eaw-pi-msg").textContent = texto;
+  }
+
+  // Si quedó un pago a mitad, se lo avisamos al servidor
+  function onIncompletePaymentFound(payment) {
+    fetch(EAW_PI_SERVER + "/incomplete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentId: payment.identifier })
+    }).catch(function () {});
+    eawMsg("Tienes un pago de Pi pendiente de completar. Escríbenos pa' ayudarte.");
+  }
+
+  document.getElementById("eaw-pay-pi").addEventListener("click", async function () {
+    // ⚠️ AJUSTAR: pon aquí el total a cobrar en Pi y el número de orden.
+    // Ejemplo básico: lee el total del carrito de Shopify en USD y úsalo
+    // como monto en Pi SOLO como prueba — el precio real en Pi lo defines tú.
+    var amount = 1; // Test-Pi en modo sandbox
+    var orderId = "EAW-" + Date.now();
+
+    try {
+      eawMsg("Conectando con tu wallet de Pi…");
+      await Pi.authenticate(["payments"], onIncompletePaymentFound);
+
+      var paymentData = {
+        amount: amount,
+        memo: "EverAfterWear — orden " + orderId,
+        metadata: { orderId: orderId, store: "everafterwear.store" }
+      };
+
+      var callbacks = {
+        onReadyForServerApproval: function (paymentId) {
+          fetch(EAW_PI_SERVER + "/approve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId: paymentId })
+          }).catch(function () { eawMsg("Error avisando al servidor. Intenta de nuevo."); });
+        },
+        onReadyForServerCompletion: function (paymentId, txid) {
+          fetch(EAW_PI_SERVER + "/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paymentId: paymentId, txid: txid })
+          })
+            .then(function () { eawMsg("✅ ¡Pago con Pi completado! Gracias por tu compra."); })
+            .catch(function () { eawMsg("El pago se hizo, pero falló el aviso final. Guarda tu comprobante."); });
+        },
+        onCancel: function () {
+          eawMsg("Pago cancelado. Puedes intentarlo de nuevo cuando quieras.");
+        },
+        onError: function (error) {
+          eawMsg("Hubo un error con el pago de Pi: " + (error && error.message ? error.message : error));
+        }
+      };
+
+      Pi.createPayment(paymentData, callbacks);
+    } catch (e) {
+      eawMsg("No se pudo iniciar el pago. Abre la tienda desde el Pi Browser e intenta de nuevo.");
+    }
+  });
+</script>
