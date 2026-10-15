@@ -51,7 +51,7 @@
     try {
       boton.disabled = true;
       decir("Conectando con tu wallet de Pi…");
-      var auth = await Pi.authenticate(["payments"], onIncompletePaymentFound);
+      var auth = await Pi.authenticate(["payments", "wallet_address", "username"], onIncompletePaymentFound);
       // Registra la visita (uid + username) pa' los pagos A2U del requisito del portal.
       if (auth && auth.user && auth.user.uid) {
         fetch("/visita", {
