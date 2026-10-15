@@ -163,6 +163,40 @@ app.post('/a2u', async (req, res) => {
   }
 });
 
+// Completa un pago A2U ya creado (ej. quedó "ongoing" por un intento anterior):
+// lo envía a la blockchain con la semilla actual y lo cierra.
+app.post('/a2u/completar', async (req, res) => {
+  if (!a2uListo(res)) return;
+  if (!esAdmin(req)) return res.status(401).json({ error: 'Token de admin inválido.' });
+  const { paymentId } = req.body || {};
+  if (!paymentId) return res.status(400).json({ error: 'Falta paymentId.' });
+  try {
+    const PiBackend = require('pi-backend').default || require('pi-backend');
+    const pi = new PiBackend(PI_API_KEY, PI_WALLET_SEED);
+    const txid = await pi.submitPayment(paymentId);
+    const pago = await pi.completePayment(paymentId, txid);
+    res.json({ ok: true, paymentId, txid, status: pago && pago.status ? pago.status : null });
+  } catch (err) {
+    res.status(502).json({ error: err.message || 'Error completando el pago', detalle: err.response && err.response.data ? err.response.data : null });
+  }
+});
+
+// Cancela un pago A2U trancado (último recurso pa' liberar al usuario)
+app.post('/a2u/cancelar', async (req, res) => {
+  if (!a2uListo(res)) return;
+  if (!esAdmin(req)) return res.status(401).json({ error: 'Token de admin inválido.' });
+  const { paymentId } = req.body || {};
+  if (!paymentId) return res.status(400).json({ error: 'Falta paymentId.' });
+  try {
+    const PiBackend = require('pi-backend').default || require('pi-backend');
+    const pi = new PiBackend(PI_API_KEY, PI_WALLET_SEED);
+    const pago = await pi.cancelPayment(paymentId);
+    res.json({ ok: true, paymentId, status: pago && pago.status ? pago.status : null });
+  } catch (err) {
+    res.status(502).json({ error: err.message || 'Error cancelando el pago', detalle: err.response && err.response.data ? err.response.data : null });
+  }
+});
+
 // Lista pagos A2U incompletos (creados sin completar) pa' limpiarlos si algo se tranca
 app.get('/a2u/incompletos', async (req, res) => {
   if (!a2uListo(res)) return;
