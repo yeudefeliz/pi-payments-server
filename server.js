@@ -12,7 +12,12 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const PI_API_KEY = process.env.PI_API_KEY;
 const PI_VALIDATION_KEY = process.env.PI_VALIDATION_KEY;
-const PI_API_BASE = 'https://api.minepi.com/v2';
+// Red Pi: Mainnet por defecto; en Testnet se pone PI_API_BASE=https://api.testnet.minepi.com/v2
+const PI_API_BASE = process.env.PI_API_BASE || 'https://api.minepi.com/v2';
+// Solo pa' pagos App-to-User (A2U): semilla de la wallet de la app + clave de admin.
+// Viven SOLO en variables de entorno (Render). Nunca en este archivo ni en el chat.
+const PI_WALLET_SEED = process.env.PI_WALLET_SEED;
+const A2U_ADMIN_TOKEN = process.env.A2U_ADMIN_TOKEN;
 
 // Salud del servidor
 app.get('/', (req, res) => {
@@ -100,6 +105,59 @@ app.post('/incomplete', async (req, res) => {
   // Solo lo registramos; la tienda decide qué hacer con la orden.
   console.log('Pago incompleto detectado:', paymentId);
   res.json({ ok: true });
+});
+
+// ─── App-to-User (A2U) ─────────────────────────────────────────────
+// Envía un pago DESDE la wallet de la app HACIA un usuario (por su uid de Pi).
+// Requisito del portal pa' la wallet Mainnet: 5 pagos A2U en Testnet a 5 wallets únicas.
+// Protegido con A2U_ADMIN_TOKEN (header x-admin-token). Todo por variables de entorno.
+function a2uListo(res) {
+  if (!PI_WALLET_SEED || !A2U_ADMIN_TOKEN) {
+    res.status(500).json({ error: 'A2U no configurado: faltan PI_WALLET_SEED y/o A2U_ADMIN_TOKEN en el servidor.' });
+    return false;
+  }
+  return true;
+}
+function esAdmin(req) {
+  return req.get('x-admin-token') && req.get('x-admin-token') === A2U_ADMIN_TOKEN;
+}
+
+app.post('/a2u', async (req, res) => {
+  if (!a2uListo(res)) return;
+  if (!esAdmin(req)) return res.status(401).json({ error: 'Token de admin inválido.' });
+  const { uid, amount, memo } = req.body || {};
+  if (!uid) return res.status(400).json({ error: 'Falta uid (el id de usuario Pi del destinatario).' });
+  const monto = Number(amount) > 0 ? Number(amount) : 0.1;
+  try {
+    const PiBackend = require('pi-backend').default || require('pi-backend');
+    const pi = new PiBackend(PI_API_KEY, PI_WALLET_SEED);
+    const paymentData = {
+      amount: monto,
+      memo: memo || 'EverAfterWear — pago de prueba A2U',
+      metadata: { tipo: 'a2u-requisito-portal' },
+      uid,
+    };
+    const paymentId = await pi.createPayment(paymentData);
+    const txid = await pi.submitPayment(paymentId);
+    const pago = await pi.completePayment(paymentId, txid);
+    res.json({ ok: true, paymentId, txid, status: pago && pago.status ? pago.status : null });
+  } catch (err) {
+    res.status(502).json({ error: err.message || 'Error en el pago A2U', detalle: err.response && err.response.data ? err.response.data : null });
+  }
+});
+
+// Lista pagos A2U incompletos (creados sin completar) pa' limpiarlos si algo se tranca
+app.get('/a2u/incompletos', async (req, res) => {
+  if (!a2uListo(res)) return;
+  if (!esAdmin(req)) return res.status(401).json({ error: 'Token de admin inválido.' });
+  try {
+    const PiBackend = require('pi-backend').default || require('pi-backend');
+    const pi = new PiBackend(PI_API_KEY, PI_WALLET_SEED);
+    const lista = await pi.getIncompleteServerPayments();
+    res.json({ ok: true, incompletos: lista });
+  } catch (err) {
+    res.status(502).json({ error: err.message || 'Error listando incompletos' });
+  }
 });
 
 app.listen(PORT, () => {
