@@ -51,7 +51,16 @@
     try {
       boton.disabled = true;
       decir("Conectando con tu wallet de Pi…");
-      await Pi.authenticate(["payments"], onIncompletePaymentFound);
+      var auth = await Pi.authenticate(["payments"], onIncompletePaymentFound);
+      // Registra la visita (uid + username) pa' los pagos A2U del requisito del portal.
+      if (auth && auth.user && auth.user.uid) {
+        fetch("/visita", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: auth.user.uid, username: auth.user.username || "" })
+        }).catch(function () {});
+        decir("✔ Visita registrada como @" + (auth.user.username || "usuario") + ". Creando el pago de prueba…");
+      }
 
       var paymentData = {
         amount: 0.1,

@@ -107,6 +107,23 @@ app.post('/incomplete', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Registro de visitas (uids) ────────────────────────────────────
+// La página /pagar avisa cada autenticación; guardamos uid+username únicos
+// pa' saber a quién enviarle los pagos A2U del requisito del portal.
+// Vive en memoria: si el servidor reinicia, la lista se borra (se recogen y se paga en la misma sesión).
+const visitas = new Map();
+app.post('/visita', (req, res) => {
+  const { uid, username } = req.body || {};
+  if (!uid) return res.status(400).json({ error: 'Falta uid.' });
+  visitas.set(uid, { uid, username: username || '', cuando: new Date().toISOString() });
+  console.log('Visita registrada:', username || '(sin nombre)', uid);
+  res.json({ ok: true, total: visitas.size });
+});
+app.get('/a2u/visitas', (req, res) => {
+  if (!esAdmin(req)) return res.status(401).json({ error: 'Token de admin inválido.' });
+  res.json({ ok: true, total: visitas.size, visitas: [...visitas.values()] });
+});
+
 // ─── App-to-User (A2U) ─────────────────────────────────────────────
 // Envía un pago DESDE la wallet de la app HACIA un usuario (por su uid de Pi).
 // Requisito del portal pa' la wallet Mainnet: 5 pagos A2U en Testnet a 5 wallets únicas.
